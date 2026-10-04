@@ -384,7 +384,7 @@ def merge_apk(original: Path, rebuilt: Path, output: Path, payload: Payload) -> 
 def apktool_decode(apktool: str, apk: Path, decoded: Path) -> None:
     run(
         command(apktool)
-        + ["d", "-f", "-r", "--no-assets", "--only-main-classes", "-j", "8", "-o", str(decoded), str(apk)]
+        + ["d", "-f", "-r", "--no-assets", "-j", "8", "-o", str(decoded), str(apk)]
     )
 
 
