@@ -135,6 +135,26 @@ def load_metadata(apk: Path, metadata_file: Path | None = None) -> bytes:
     return metadata
 
 
+def load_globalgamemanagers(apk: Path) -> bytes:
+    with zipfile.ZipFile(apk) as archive:
+        path = "assets/bin/Data/globalgamemanagers"
+        if path in archive.namelist():
+            return archive.read(path)
+        bundle = "assets/bin/Data/data.unity3d"
+        if bundle not in archive.namelist():
+            fail("APK has no globalgamemanagers file or data.unity3d bundle")
+        try:
+            import UnityPy
+        except ImportError:
+            fail("APK uses data.unity3d; install UnityPy to extract globalgamemanagers")
+        env = UnityPy.load(archive.read(bundle))
+        matches = [asset for asset in env.assets if asset.name == "globalgamemanagers"]
+        if len(matches) != 1:
+            fail(f"expected one globalgamemanagers in data.unity3d, found {len(matches)}")
+        # Keep the original serialized bytes, without reserializing Unity objects.
+        return matches[0].reader.bytes
+
+
 def patch_smali(decoded: Path) -> Path:
     matches = list(decoded.glob("smali*/" + UNITY_PLAYER))
     if len(matches) != 1:
@@ -260,12 +280,9 @@ def stage_payload(
     if config_manifest not in manifest:
         manifest.append(config_manifest)
 
-    with zipfile.ZipFile(apk) as archive:
-        if "assets/bin/Data/globalgamemanagers" not in archive.namelist():
-            fail("APK has no globalgamemanagers file")
-        game = assets / "game/Data/globalgamemanagers"
-        game.parent.mkdir(parents=True, exist_ok=True)
-        game.write_bytes(archive.read("assets/bin/Data/globalgamemanagers"))
+    game = assets / "game/Data/globalgamemanagers"
+    game.parent.mkdir(parents=True, exist_ok=True)
+    game.write_bytes(load_globalgamemanagers(apk))
     manifest.append("mod/game/Data/globalgamemanagers\tgame/Data/globalgamemanagers")
 
     def add_native(path: Path) -> None:
